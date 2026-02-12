@@ -28,4 +28,3 @@ resource "aws_instance" "web_server" {
   }
 }
 
-https://339712813620.signin.aws.amazon.com/console
