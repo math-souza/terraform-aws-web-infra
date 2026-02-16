@@ -3,7 +3,7 @@ provider "aws" {
   region = var.region
 }
 
-######################################################### NETWORK #########################################################
+######################################################### NETWORK RESOURCES #########################################################
 
 # Configuracao da VPC
 resource "aws_vpc" "web-server-vpc" {
@@ -219,5 +219,6 @@ resource "aws_lb_listener" "webserver-listener" {
     target_group_arn = aws_lb_target_group.webserver-tg.arn
   }
 }
+
 
 
