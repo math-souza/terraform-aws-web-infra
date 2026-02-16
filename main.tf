@@ -72,7 +72,7 @@ resource "aws_route_table" "pub-rtb-webserver" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "aws_internet_gateway.web-server-igw.id"
+    gateway_id = aws_internet_gateway.web-server-igw.id
   }
   tags = {
     Name = "pub-rtb-webserver"
@@ -219,6 +219,7 @@ resource "aws_lb_listener" "webserver-listener" {
     target_group_arn = aws_lb_target_group.webserver-tg.arn
   }
 }
+
 
 
 
