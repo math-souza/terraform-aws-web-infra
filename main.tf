@@ -112,7 +112,7 @@ resource "aws_security_group" "alb-sg-webserver" {
 
 # Security Group EC2
 resource "aws_security_group" "ec2-sg-webserver" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = aws_vpc.web-server-vpc.id
 
   ingress {
     from_port       = 80
@@ -186,7 +186,7 @@ resource "aws_lb" "web-server-alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb-sg-webserver.id]
-  subnets            = [for subnet in aws_subnet.public : subnet.id]
+  subnets            = [aws_subnet.pub-sub-1a-webserver.id, aws_subnet.pub-sub-1b-webserver.id]
 }
 
 # Target Group
@@ -219,6 +219,7 @@ resource "aws_lb_listener" "webserver-listener" {
     target_group_arn = aws_lb_target_group.webserver-tg.arn
   }
 }
+
 
 
 
