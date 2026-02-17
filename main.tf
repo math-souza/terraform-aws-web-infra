@@ -253,6 +253,20 @@ resource "aws_lb_target_group" "webserver-tg" {
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.web-server-vpc.id
+
+  health_check {
+    path                = "/"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  tags = {
+    Name = "web-target-group"
+  }
 }
 
 resource "aws_lb_target_group_attachment" "web-server-a" {
@@ -296,6 +310,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
