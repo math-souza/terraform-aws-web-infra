@@ -99,7 +99,7 @@ resource "aws_eip" "webserver-nat" {
 
 resource "aws_nat_gateway" "webserver-nat" {
   allocation_id = aws_eip.webserver-nat.id
-  subnet_id     = aws_subnet.pub-sub-1[0]-webserver.id
+  subnet_id     = aws_subnet.pub-sub-1a-webserver.id
 
   tags = {
     Name = "NAT-webserver"
@@ -108,7 +108,18 @@ resource "aws_nat_gateway" "webserver-nat" {
   depends_on = [aws_internet_gateway.web-server-igw]
 }
 
-# Config 
+# Config Route Table Privada
+resource "aws_route_table" "priv-rtb-webserver" {
+  vpc_id = aws_vpc.web-server-vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.webserver-nat.id
+  }
+  tags = {
+    Name = "priv-rtb-webserver"
+  }
+}
 
 ######################################################### SECURITY GROUP #########################################################
 
@@ -151,10 +162,9 @@ resource "aws_security_group" "ec2-sg-webserver" {
 }
 
 ######################################################### IAM #########################################################
-
-# IAM Role para S3
-resource "aws_iam_role" "ec2-webserver-role" {
-  name = "ec2-s3-role-webserver"
+# IAM Role para EC2
+resource "aws_iam_role" "ec2-s3-role-webserver" {
+  name = "ec2-s3-access-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -164,40 +174,62 @@ resource "aws_iam_role" "ec2-webserver-role" {
         Effect = "Allow"
         Principal = {
           Service = "ec2.amazonaws.com"
+        }
       }
-    }]
+    ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "s3-read-webserver" {
-  role       = aws_iam_role.ec2-webserver-role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+# Permitir acesso ao bucket
+resource "aws_iam_policy" "s3-read-policy" {
+  name = "ec2-s3-read-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "arn:aws:s3:::website-project-matheus/*"
+      }
+    ]
+  })
 }
 
-# IAM Instance Profile para a EC2
-resource "aws_iam_instance_profile" "ec2-webserver-profile" {
-  name = "ec2-webserver-profile"
-  role = aws_iam_role.ec2-webserver-role.name
+# Anexar policy a Role
+resource "aws_iam_role_policy_attachment" "ec2-attach-policy" {
+  role       = aws_iam_role.ec2-s3-role-webserver.name
+  policy_arn = aws_iam_policy.s3-read-policy.arn
+}
+
+# Instance Profile
+resource "aws_iam_instance_profile" "ec2-profile-webserver" {
+  name = "ec2-s3-profile"
+  role = aws_iam_role.ec2-s3-role-webserver.name
 }
 
 ######################################################### COMPUTE RESOURCES #########################################################
 
 # Web Servers
 resource "aws_instance" "web_a" {
+  name                        = "web-server-a"
   ami                         = "ami-0c1fe732b5494dc14"
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-webserver-profile.name
+  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
   user_data                   = file("userdata.sh")
 }
 
 resource "aws_instance" "web_b" {
+  name                        = "web-server-b"
   ami                         = "ami-0c1fe732b5494dc14"
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-webserver-profile.name
+  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
   user_data                   = file("userdata.sh")
 }
 
@@ -241,6 +273,23 @@ resource "aws_lb_listener" "webserver-listener" {
   }
 }
 
+######################################################### S3 #########################################################
+
+# Criar VPC Endpoint
+resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
+  vpc_id            = aws_vpc.web-server-vpc.id
+  service_name      = "com.amazonaws.us-east-1.s3"
+  vpc_endpoint_type = "Gateway"
+
+  route_table_ids = [
+    aws_route_table.pub-rtb-webserver.id,
+    aws_route_table.priv-rtb-webserver.id
+  ]
+
+  tags = {
+    Name = "s3-gateway-endpoint"
+  }
+}
 
 
 
