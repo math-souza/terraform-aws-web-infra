@@ -204,6 +204,11 @@ resource "aws_iam_role_policy_attachment" "ec2-attach-policy" {
   policy_arn = aws_iam_policy.s3-read-policy.arn
 }
 
+resource "aws_iam_role_policy_attachment" "ssm_attach" {
+  role       = aws_iam_role.ec2-s3-role-webserver.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 # Instance Profile
 resource "aws_iam_instance_profile" "ec2-profile-webserver" {
   name = "ec2-s3-profile"
@@ -310,6 +315,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
