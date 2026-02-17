@@ -66,7 +66,7 @@ resource "aws_subnet" "priv-sub-1b-webserver" {
   }
 }
 
-# Configuracao da Route Table Publica
+# Config da Route Table Publica
 resource "aws_route_table" "pub-rtb-webserver" {
   vpc_id = aws_vpc.web-server-vpc.id
 
@@ -88,6 +88,27 @@ resource "aws_route_table_association" "public_1b" {
   subnet_id      = aws_subnet.pub-sub-1b-webserver.id
   route_table_id = aws_route_table.pub-rtb-webserver.id
 }
+
+# Config nat-gateway
+resource "aws_eip" "webserver-nat" {
+  domain = "vpc"
+  tags = {
+    Name = "webserver-nat-eip"
+  }
+}
+
+resource "aws_nat_gateway" "webserver-nat" {
+  allocation_id = aws_eip.webserver-nat.id
+  subnet_id     = aws_subnet.pub-sub-1[0]-webserver.id
+
+  tags = {
+    Name = "NAT-webserver"
+  }
+
+  depends_on = [aws_internet_gateway.web-server-igw]
+}
+
+# Config 
 
 ######################################################### SECURITY GROUP #########################################################
 
@@ -219,6 +240,7 @@ resource "aws_lb_listener" "webserver-listener" {
     target_group_arn = aws_lb_target_group.webserver-tg.arn
   }
 }
+
 
 
 
