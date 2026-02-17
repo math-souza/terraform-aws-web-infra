@@ -214,23 +214,29 @@ resource "aws_iam_instance_profile" "ec2-profile-webserver" {
 
 # Web Servers
 resource "aws_instance" "web_a" {
-  name                        = "web-server-a"
   ami                         = "ami-0c1fe732b5494dc14"
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
   user_data                   = file("userdata.sh")
+  
+  tags = {
+    name = "web-server-a"
+  }
 }
 
 resource "aws_instance" "web_b" {
-  name                        = "web-server-b"
   ami                         = "ami-0c1fe732b5494dc14"
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
   user_data                   = file("userdata.sh")
+  
+  tags = {
+    name = "web-server-b"
+  }
 }
 
 # ALB
@@ -290,6 +296,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
