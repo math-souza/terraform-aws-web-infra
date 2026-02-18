@@ -8,6 +8,8 @@ provider "aws" {
 # Configuracao da VPC
 resource "aws_vpc" "web-server-vpc" {
   cidr_block       = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support = true
 
   tags = {
     Name = "web-server-vpc"
@@ -89,12 +91,13 @@ resource "aws_route_table_association" "public_1b" {
   route_table_id = aws_route_table.pub-rtb-webserver.id
 }
 
-# Config nat-gateway
+# Config NAT-gateway
 resource "aws_eip" "webserver-nat" {
   domain = "vpc"
   tags = {
     Name = "webserver-nat-eip"
   }
+
 }
 
 resource "aws_nat_gateway" "webserver-nat" {
@@ -121,32 +124,61 @@ resource "aws_route_table" "priv-rtb-webserver" {
   }
 }
 
+resource "aws_route_table_association" "private_1a" {
+  subnet_id      = aws_subnet.priv-sub-1a-webserver.id
+  route_table_id = aws_route_table.priv-rtb-webserver.id
+}
+
+resource "aws_route_table_association" "private_1b" {
+  subnet_id      = aws_subnet.priv-sub-1b-webserver.id
+  route_table_id = aws_route_table.priv-rtb-webserver.id
+}
+
 ######################################################### SECURITY GROUP #########################################################
 
 # Security Group ALB
 resource "aws_security_group" "alb-sg-webserver" {
   vpc_id = aws_vpc.web-server-vpc.id
+  description = "SG para o Application Load Balancer"
+  name = "alb-sg-webserver"
 
   ingress {
+    description = "HTTP para Internet"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    description = "HTTPS para Internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
+    description = "Permitir toda saida"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "alb-sg-webserver"
+  }
 }
 
 # Security Group EC2
 resource "aws_security_group" "ec2-sg-webserver" {
+  name = "ec2-sg-webserver"
+  description = "SG para Instancias EC2 Web Server"
   vpc_id = aws_vpc.web-server-vpc.id
 
   ingress {
+    description = "HTTP para ALB"
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
@@ -154,10 +186,15 @@ resource "aws_security_group" "ec2-sg-webserver" {
   }
 
   egress {
+    description = "Permitir toda saida"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ec2-sg-webserver"
   }
 }
 
@@ -178,11 +215,16 @@ resource "aws_iam_role" "ec2-s3-role-webserver" {
       }
     ]
   })
+
+  tags = {
+    Name = "ec2-s3-role-webserver"
+  }
 }
 
 # Permitir acesso ao bucket
 resource "aws_iam_policy" "s3-read-policy" {
   name = "ec2-s3-read-policy"
+  description = "Permitir EC2 ler o bucket S3""
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -190,9 +232,13 @@ resource "aws_iam_policy" "s3-read-policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:ListBucket"
         ]
-        Resource = "arn:aws:s3:::website-project-matheus/*"
+        Resource = [
+          "arn:aws:s3:::website-project-matheus",
+          "arn:aws:s3:::website-project-matheus/*"
+        ]
       }
     ]
   })
@@ -224,11 +270,20 @@ resource "aws_instance" "web_a" {
   subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
-  user_data                   = file("userdata.sh")
+  user_data_replace_on_change = true
+
+  user_data = templatefile("${path.module}/userdata.sh", {
+    bucket_name = "website-project-matheus"
+  })
   
   tags = {
     name = "web-server-a"
   }
+
+  depends_on = [
+    aws_nat_gateway.webserver-nat.id,
+    aws_vpc_endpoint.webserver-s3-endpoint
+  ]
 }
 
 resource "aws_instance" "web_b" {
@@ -237,11 +292,20 @@ resource "aws_instance" "web_b" {
   subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
-  user_data                   = file("userdata.sh")
+  user_data_replace_on_change = true
+
+  user_data = templatefile("${path.module}/userdata.sh", {
+    bucket_name = "website-project-matheus"
+  })
   
   tags = {
     name = "web-server-b"
   }
+
+  depends_on = [
+    aws_nat_gateway.webserver-nat,
+    aws_vpc_endpoint.webserver-s3-endpoint
+  ]
 }
 
 # ALB
@@ -251,15 +315,23 @@ resource "aws_lb" "web-server-alb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb-sg-webserver.id]
   subnets            = [aws_subnet.pub-sub-1a-webserver.id, aws_subnet.pub-sub-1b-webserver.id]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name = "web-server-alb"
+  }
 }
 
 # Target Group
 resource "aws_lb_target_group" "webserver-tg" {
+  name     = "webserver-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.web-server-vpc.id
 
   health_check {
+    enabled             = true
     path                = "/"
     protocol            = "HTTP"
     matcher             = "200"
@@ -268,6 +340,8 @@ resource "aws_lb_target_group" "webserver-tg" {
     healthy_threshold   = 2
     unhealthy_threshold = 2
   }
+
+  deregistratio_delay = 30
 
   tags = {
     Name = "web-target-group"
@@ -300,14 +374,13 @@ resource "aws_lb_listener" "webserver-listener" {
 
 ######################################################### S3 #########################################################
 
-# Criar VPC Endpoint
+# Criar VPC Endpoint S3
 resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
   vpc_id            = aws_vpc.web-server-vpc.id
   service_name      = "com.amazonaws.us-east-1.s3"
   vpc_endpoint_type = "Gateway"
 
   route_table_ids = [
-    aws_route_table.pub-rtb-webserver.id,
     aws_route_table.priv-rtb-webserver.id
   ]
 
@@ -315,6 +388,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
