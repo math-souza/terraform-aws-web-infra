@@ -281,7 +281,7 @@ resource "aws_instance" "web_a" {
   }
 
   depends_on = [
-    aws_nat_gateway.webserver-nat.id,
+    aws_nat_gateway.webserver-nat,
     aws_vpc_endpoint.webserver-s3-endpoint
   ]
 }
@@ -341,7 +341,7 @@ resource "aws_lb_target_group" "webserver-tg" {
     unhealthy_threshold = 2
   }
 
-  deregistratio_delay = 30
+  deregistration_delay = 30
 
   tags = {
     Name = "web-target-group"
@@ -388,6 +388,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
