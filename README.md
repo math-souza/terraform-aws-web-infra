@@ -1,8 +1,6 @@
-```markdown
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-623CE4?logo=terraform&logoColor=white)
 ![AWS](https://img.shields.io/badge/Cloud-AWS-FF9900?logo=amazonaws&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Production-green)
-```
 
 # 🚀 AWS Infraestrutura Web com Terraform
 
