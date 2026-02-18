@@ -70,3 +70,8 @@ Usuário → DNS (Route 53) → ALB (HTTPS) → Target Group → EC2 (subnet pri
 
 ```bash
 terraform init
+
+### 2️⃣ Validar
+
+```bash
+terraform validate
