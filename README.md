@@ -1,3 +1,9 @@
+```markdown
+![Terraform](https://img.shields.io/badge/IaC-Terraform-blue)
+![AWS](https://img.shields.io/badge/Cloud-AWS-orange)
+![Status](https://img.shields.io/badge/Status-Working-success)
+```
+
 # 🚀 AWS Infraestrutura Web com Terraform
 
 Projeto de infraestrutura em nuvem utilizando AWS e Terraform para provisionamento automatizado de uma aplicação web altamente disponível.
@@ -70,8 +76,58 @@ Usuário → DNS (Route 53) → ALB (HTTPS) → Target Group → EC2 (subnet pri
 
 ```bash
 terraform init
+```
 
 ### 2️⃣ Validar
 
 ```bash
 terraform validate
+terraform plan
+```
+
+### 3️⃣ Aplicar infraestrutura
+
+```bash
+terraform apply
+```
+
+### 4️⃣ Destruir ambiente
+
+```bash
+terraform destroy
+```
+
+---
+
+## 🌐 Deploy da Aplicação
+O site é armazenado em um bucket no Amazon S3 e copiado automaticamente para a instância EC2 através de script user_data durante o provisionamento.
+
+Exemplo do user_data:
+```bash
+#!/bin/bash
+yum update -y
+yum install -y nginx aws-cli
+aws s3 cp s3://SEU_BUCKET/ /usr/share/nginx/html/ --recursive
+systemctl enable nginx
+systemctl start nginx
+```
+
+---
+
+## 📈 Próximas melhorias
+
+- Auto Scaling Group
+- Pipeline CI/CD
+- Deploy automatizado via GitHub Actions
+- Monitoramento com CloudWatch
+- Logs centralizados
+- Infraestrutura modularizada
+
+---
+
+## 👨‍💻 Autor
+Matheus Almeida
+Cloud Engineer | AWS Certified Solutions Architect Associate
+AWS Certified Developer Associate
+
+---
