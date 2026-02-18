@@ -1,5 +1,5 @@
 ```markdown
-![Terraform Provider Downloads](https://img.shields.io/terraform/provider/:interval/:providerId)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-blue)
 ![AWS](https://img.shields.io/badge/Cloud-AWS-orange)
 ![Status](https://img.shields.io/badge/Status-Working-success)
 ```
