@@ -1,4 +1,4 @@
-# 🚀 AWS Web Infrastructure with Terraform
+# 🚀 AWS Infraestrutura Web com Terraform
 
 Projeto de infraestrutura em nuvem utilizando AWS e Terraform para provisionamento automatizado de uma aplicação web altamente disponível.
 
