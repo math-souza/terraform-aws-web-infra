@@ -224,7 +224,7 @@ resource "aws_iam_role" "ec2-s3-role-webserver" {
 # Permitir acesso ao bucket
 resource "aws_iam_policy" "s3-read-policy" {
   name = "ec2-s3-read-policy"
-  description = "Permitir EC2 ler o bucket S3""
+  description = "Permitir EC2 ler o bucket S3"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -388,6 +388,7 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
     Name = "s3-gateway-endpoint"
   }
 }
+
 
 
 
