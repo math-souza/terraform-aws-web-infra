@@ -361,13 +361,30 @@ resource "aws_lb_target_group_attachment" "web-server-b" {
 }
 
 # Listener
-resource "aws_lb_listener" "webserver-listener" {
+resource "aws_lb_listener" "webserver-http-listener" {
   load_balancer_arn = aws_lb.web-server-alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
+    type             = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "webserver-https-listener" {
+  load_balancer_arn = aws_lb.web-server-alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate.cert.arn
+
+  default_action {
+    type = "forward"
     target_group_arn = aws_lb_target_group.webserver-tg.arn
   }
 }
@@ -389,9 +406,42 @@ resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
   }
 }
 
+######################################################### ROUTE 53 #########################################################
+data "aws_route53_zone" "primary" {
+  name         = "msalmeida.com.br"
+  private_zone = false
+}
 
+resource "aws_route53_record" "root" {
+  zone_id = aws_route53_zone.primary.zone_id
+  name    = "msalmeida.com.br"
+  type    = "A"
 
+  alias {
+    name                   = aws_lb.web-server-alb.dns_name
+    zone_id                = aws_lb.web-server-alb.zone_id
+    evaluate_target_health = true
+  }
+}
 
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name    = "www.msalmeida.com.br"
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.web-server-alb.dns_name
+    zone_id                = aws_lb.web-server-alb.zone_id
+    evaluate_target_health = true
+  }
+}
+
+######################################################### ACM #########################################################
+data "aws_acm_certificate" "cert" {
+  domain      = "msalmeida.com.br"
+  types       = ["AMAZON_ISSUED"]
+  most_recent = true
+}
 
 
 
