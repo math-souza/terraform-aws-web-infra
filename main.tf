@@ -381,7 +381,7 @@ resource "aws_lb_listener" "webserver-https-listener" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate.cert.arn
+  certificate_arn   = data.aws_acm_certificate.cert.arn
 
   default_action {
     type = "forward"
@@ -413,7 +413,7 @@ data "aws_route53_zone" "primary" {
 }
 
 resource "aws_route53_record" "root" {
-  zone_id = aws_route53_zone.primary.zone_id
+  zone_id = data.aws_route53_zone.primary.zone_id
   name    = "msalmeida.com.br"
   type    = "A"
 
@@ -442,6 +442,7 @@ data "aws_acm_certificate" "cert" {
   types       = ["AMAZON_ISSUED"]
   most_recent = true
 }
+
 
 
 
