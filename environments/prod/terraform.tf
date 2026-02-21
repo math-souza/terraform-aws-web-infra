@@ -5,14 +5,15 @@ terraform {
       version = "~> 6.0"
     }
   }
+
   backend "s3" {
-    bucket         = "terraform-state-msalmeida"
+    bucket         = "msalmeida-tfstate-webserver-project"
     key            = "prod/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-lock-msalmeida"
     encrypt        = true
   }
-
 }
+
 
 
