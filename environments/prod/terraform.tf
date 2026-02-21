@@ -6,11 +6,13 @@ terraform {
     }
   }
   backend "s3" {
-    bucket = "webserver-project-matheus" 
-    key    = "webserver/terraform.tfstate"   
-    region = "us-east-1"
-    encrypt = true
+    bucket         = "terraform-state-msalmeida"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-lock-msalmeida"
+    encrypt        = true
   }
 
 }
+
 
