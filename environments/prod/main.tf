@@ -3,451 +3,58 @@ provider "aws" {
   region = var.region
 }
 
-######################################################### NETWORK RESOURCES #########################################################
-
-# Configuracao da VPC
-resource "aws_vpc" "web-server-vpc" {
-  cidr_block       = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support = true
-
-  tags = {
-    Name = "web-server-vpc"
-  }
+module "network" {
+  source = "../../modules/network"
 }
 
-# Configuracao do Internet Gateway
-resource "aws_internet_gateway" "web-server-igw" {
-  vpc_id = aws_vpc.web-server-vpc.id
+module "security" {
+  source = "../../modules/security"
 
-  tags = {
-    Name = "web-server-igw"
-  }
+  vpc_id = module.network.vpc_id
 }
 
-# Configuacao de subnets
-resource "aws_subnet" "pub-sub-1a-webserver" {
-  vpc_id     = aws_vpc.web-server-vpc.id
-  cidr_block = "10.0.1.0/24"
-  availability_zone = "us-east-1a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "pub-sub-1a-webserver"
-  }
+module "iam" {
+  source = "../../modules/iam"
 }
 
-resource "aws_subnet" "pub-sub-1b-webserver" {
-  vpc_id     = aws_vpc.web-server-vpc.id
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "us-east-1b"
-  map_public_ip_on_launch = true
+module "compute" {
+  source = "../../modules/compute"
 
-  tags = {
-    Name = "pub-sub-1b-webserver"
-  }
+  private_subnet_a = module.network.private_subnets[0]
+  private_subnet_b = module.network.private_subnets[1]
+
+  ec2_sg = module.security.ec2_sg
+
+  instance_profile = module.iam.instance_profile
+
+  ami = "ami-0c1fe732b5494dc14"
+  instance_type = "t2.micro"
+
+  bucket_name = "website-project-matheus"
 }
 
-resource "aws_subnet" "priv-sub-1a-webserver" {
-  vpc_id     = aws_vpc.web-server-vpc.id
-  cidr_block = "10.0.3.0/24"
-  availability_zone = "us-east-1a"
+module "alb" {
+  source = "../../modules/alb"
 
-  tags = {
-    Name = "priv-sub-1a-webserver"
-  }
+  vpc_id = module.network.vpc_id
+
+  public_subnets = module.network.public_subnets
+
+  alb_sg = module.security.alb_sg
+
+  instances = module.compute.instance_ids
 }
 
-resource "aws_subnet" "priv-sub-1b-webserver" {
-  vpc_id     = aws_vpc.web-server-vpc.id
-  cidr_block = "10.0.4.0/24"
-  availability_zone = "us-east-1b"
+module "endpoint" {
+  source = "../../modules/endpoints"
 
-  tags = {
-    Name = "priv-sub-1b-webserver"
-  }
+  vpc_id = module.network.vpc_id
+  private_route_table_id = module.network.private_route_table_id
 }
 
-# Config da Route Table Publica
-resource "aws_route_table" "pub-rtb-webserver" {
-  vpc_id = aws_vpc.web-server-vpc.id
+module "dns" {
+  source = "../../modules/dns"
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.web-server-igw.id
-  }
-  tags = {
-    Name = "pub-rtb-webserver"
-  }
+  alb_dns = module.alb.alb_dns
+  alb_zone = module.alb.alb_zone
 }
-
-resource "aws_route_table_association" "public_1a" {
-  subnet_id      = aws_subnet.pub-sub-1a-webserver.id
-  route_table_id = aws_route_table.pub-rtb-webserver.id
-}
-
-resource "aws_route_table_association" "public_1b" {
-  subnet_id      = aws_subnet.pub-sub-1b-webserver.id
-  route_table_id = aws_route_table.pub-rtb-webserver.id
-}
-
-# Config NAT-gateway
-resource "aws_eip" "webserver-nat" {
-  domain = "vpc"
-  tags = {
-    Name = "webserver-nat-eip"
-  }
-
-}
-
-resource "aws_nat_gateway" "webserver-nat" {
-  allocation_id = aws_eip.webserver-nat.id
-  subnet_id     = aws_subnet.pub-sub-1a-webserver.id
-
-  tags = {
-    Name = "NAT-webserver"
-  }
-
-  depends_on = [aws_internet_gateway.web-server-igw]
-}
-
-# Config Route Table Privada
-resource "aws_route_table" "priv-rtb-webserver" {
-  vpc_id = aws_vpc.web-server-vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.webserver-nat.id
-  }
-  tags = {
-    Name = "priv-rtb-webserver"
-  }
-}
-
-resource "aws_route_table_association" "private_1a" {
-  subnet_id      = aws_subnet.priv-sub-1a-webserver.id
-  route_table_id = aws_route_table.priv-rtb-webserver.id
-}
-
-resource "aws_route_table_association" "private_1b" {
-  subnet_id      = aws_subnet.priv-sub-1b-webserver.id
-  route_table_id = aws_route_table.priv-rtb-webserver.id
-}
-
-######################################################### SECURITY GROUP #########################################################
-
-# Security Group ALB
-resource "aws_security_group" "alb-sg-webserver" {
-  vpc_id = aws_vpc.web-server-vpc.id
-  description = "SG para o Application Load Balancer"
-  name = "alb-sg-webserver"
-
-  ingress {
-    description = "HTTP para Internet"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "HTTPS para Internet"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Permitir toda saida"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "alb-sg-webserver"
-  }
-}
-
-# Security Group EC2
-resource "aws_security_group" "ec2-sg-webserver" {
-  name = "ec2-sg-webserver"
-  description = "SG para Instancias EC2 Web Server"
-  vpc_id = aws_vpc.web-server-vpc.id
-
-  ingress {
-    description = "HTTP para ALB"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb-sg-webserver.id]
-  }
-
-  egress {
-    description = "Permitir toda saida"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "ec2-sg-webserver"
-  }
-}
-
-######################################################### IAM #########################################################
-# IAM Role para EC2
-resource "aws_iam_role" "ec2-s3-role-webserver" {
-  name = "ec2-s3-access-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "ec2-s3-role-webserver"
-  }
-}
-
-# Permitir acesso ao bucket
-resource "aws_iam_policy" "s3-read-policy" {
-  name = "ec2-s3-read-policy"
-  description = "Permitir EC2 ler o bucket S3"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "arn:aws:s3:::website-project-matheus",
-          "arn:aws:s3:::website-project-matheus/*"
-        ]
-      }
-    ]
-  })
-}
-
-# Anexar policy a Role
-resource "aws_iam_role_policy_attachment" "ec2-attach-policy" {
-  role       = aws_iam_role.ec2-s3-role-webserver.name
-  policy_arn = aws_iam_policy.s3-read-policy.arn
-}
-
-resource "aws_iam_role_policy_attachment" "ssm_attach" {
-  role       = aws_iam_role.ec2-s3-role-webserver.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-# Instance Profile
-resource "aws_iam_instance_profile" "ec2-profile-webserver" {
-  name = "ec2-s3-profile"
-  role = aws_iam_role.ec2-s3-role-webserver.name
-}
-
-######################################################### COMPUTE RESOURCES #########################################################
-
-# Web Servers
-resource "aws_instance" "web_a" {
-  ami                         = "ami-0c1fe732b5494dc14"
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
-  vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
-  user_data_replace_on_change = true
-
-  user_data = templatefile("${path.module}/userdata.sh", {
-    bucket_name = "website-project-matheus"
-  })
-  
-  tags = {
-    name = "web-server-a"
-  }
-
-  depends_on = [
-    aws_nat_gateway.webserver-nat,
-    aws_vpc_endpoint.webserver-s3-endpoint
-  ]
-}
-
-resource "aws_instance" "web_b" {
-  ami                         = "ami-0c1fe732b5494dc14"
-  instance_type               = "t2.micro"
-  subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
-  vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
-  user_data_replace_on_change = true
-
-  user_data = templatefile("${path.module}/userdata.sh", {
-    bucket_name = "website-project-matheus"
-  })
-  
-  tags = {
-    name = "web-server-b"
-  }
-
-  depends_on = [
-    aws_nat_gateway.webserver-nat,
-    aws_vpc_endpoint.webserver-s3-endpoint
-  ]
-}
-
-# ALB
-resource "aws_lb" "web-server-alb" {
-  name               = "web-server-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb-sg-webserver.id]
-  subnets            = [aws_subnet.pub-sub-1a-webserver.id, aws_subnet.pub-sub-1b-webserver.id]
-
-  enable_deletion_protection = false
-
-  tags = {
-    Name = "web-server-alb"
-  }
-}
-
-# Target Group
-resource "aws_lb_target_group" "webserver-tg" {
-  name     = "webserver-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.web-server-vpc.id
-
-  health_check {
-    enabled             = true
-    path                = "/"
-    protocol            = "HTTP"
-    matcher             = "200"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-  }
-
-  deregistration_delay = 30
-
-  tags = {
-    Name = "web-target-group"
-  }
-}
-
-resource "aws_lb_target_group_attachment" "web-server-a" {
-  target_group_arn = aws_lb_target_group.webserver-tg.arn
-  target_id        = aws_instance.web_a.id
-  port             = 80
-}
-
-resource "aws_lb_target_group_attachment" "web-server-b" {
-  target_group_arn = aws_lb_target_group.webserver-tg.arn
-  target_id        = aws_instance.web_b.id
-  port             = 80
-}
-
-# Listener
-resource "aws_lb_listener" "webserver-http-listener" {
-  load_balancer_arn = aws_lb.web-server-alb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
-resource "aws_lb_listener" "webserver-https-listener" {
-  load_balancer_arn = aws_lb.web-server-alb.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = data.aws_acm_certificate.cert.arn
-
-  default_action {
-    type = "forward"
-    target_group_arn = aws_lb_target_group.webserver-tg.arn
-  }
-}
-
-######################################################### S3 #########################################################
-
-# Criar VPC Endpoint S3
-resource "aws_vpc_endpoint" "webserver-s3-endpoint" {
-  vpc_id            = aws_vpc.web-server-vpc.id
-  service_name      = "com.amazonaws.us-east-1.s3"
-  vpc_endpoint_type = "Gateway"
-
-  route_table_ids = [
-    aws_route_table.priv-rtb-webserver.id
-  ]
-
-  tags = {
-    Name = "s3-gateway-endpoint"
-  }
-}
-
-######################################################### ROUTE 53 #########################################################
-data "aws_route53_zone" "primary" {
-  name         = "msalmeida.com.br"
-  private_zone = false
-}
-
-resource "aws_route53_record" "root" {
-  zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "msalmeida.com.br"
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.web-server-alb.dns_name
-    zone_id                = aws_lb.web-server-alb.zone_id
-    evaluate_target_health = true
-  }
-}
-
-resource "aws_route53_record" "www" {
-  zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "www.msalmeida.com.br"
-  type    = "A"
-
-  alias {
-    name                   = aws_lb.web-server-alb.dns_name
-    zone_id                = aws_lb.web-server-alb.zone_id
-    evaluate_target_health = true
-  }
-}
-
-######################################################### ACM #########################################################
-data "aws_acm_certificate" "cert" {
-  domain      = "msalmeida.com.br"
-  types       = ["AMAZON_ISSUED"]
-  most_recent = true
-}
-
-
-
-
-
-
-
-
-
