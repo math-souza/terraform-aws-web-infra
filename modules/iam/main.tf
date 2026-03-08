@@ -1,6 +1,6 @@
 # IAM Role para EC2
 resource "aws_iam_role" "ec2-s3-role-webserver" {
-  name = "ec2-s3-access-role"
+  name = var.role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -22,7 +22,7 @@ resource "aws_iam_role" "ec2-s3-role-webserver" {
 
 # Permitir acesso ao bucket
 resource "aws_iam_policy" "s3-read-policy" {
-  name = "ec2-s3-read-policy"
+  name = var.policy_name
   description = "Permitir EC2 ler o bucket S3"
 
   policy = jsonencode({
@@ -56,6 +56,6 @@ resource "aws_iam_role_policy_attachment" "ssm_attach" {
 
 # Instance Profile
 resource "aws_iam_instance_profile" "ec2-profile-webserver" {
-  name = "ec2-s3-profile"
+  name = var.instance_profile_name
   role = aws_iam_role.ec2-s3-role-webserver.name
 }
