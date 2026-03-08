@@ -1,12 +1,12 @@
 ######################################################### ROUTE 53 #########################################################
 data "aws_route53_zone" "primary" {
-  name         = "msalmeida.com.br"
+  name         = var.root_domain
   private_zone = false
 }
 
 resource "aws_route53_record" "root" {
   zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "msalmeida.com.br"
+  name    = var.root_domain
   type    = "A"
 
   alias {
@@ -18,7 +18,7 @@ resource "aws_route53_record" "root" {
 
 resource "aws_route53_record" "www" {
   zone_id = data.aws_route53_zone.primary.zone_id
-  name    = "www.msalmeida.com.br"
+  name    = var.alias_domain
   type    = "A"
 
   alias {
@@ -30,7 +30,7 @@ resource "aws_route53_record" "www" {
 
 ######################################################### ACM #########################################################
 data "aws_acm_certificate" "cert" {
-  domain      = "msalmeida.com.br"
+  domain      = var.root_domain
   types       = ["AMAZON_ISSUED"]
   most_recent = true
 }
