@@ -1,4 +1,5 @@
 variable "bucket_name" {
   type = string
-  value = website-project-matheus
+  default = website-project-matheus
 }
+
