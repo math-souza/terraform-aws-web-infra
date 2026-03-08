@@ -1,6 +1,6 @@
 # Security Group ALB
 resource "aws_security_group" "alb-sg-webserver" {
-  vpc_id = aws_vpc.web-server-vpc.id
+  vpc_id = var.vpc_id
   description = "SG para o Application Load Balancer"
   name = var.sg_alb_name
 
@@ -37,7 +37,7 @@ resource "aws_security_group" "alb-sg-webserver" {
 resource "aws_security_group" "ec2-sg-webserver" {
   name = var.sg_ec2_name
   description = "SG para Instancias EC2 Web Server"
-  vpc_id = aws_vpc.web-server-vpc.id
+  vpc_id = var.vpc_id
 
   ingress {
     description = "HTTP para ALB"

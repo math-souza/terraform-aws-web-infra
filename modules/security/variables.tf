@@ -7,3 +7,7 @@ variable "sg_ec2_name" {
 	type = string
 	default = "ec2-sg-webserver"
 }
+
+variable "vpc_id" {
+  type = string
+}
