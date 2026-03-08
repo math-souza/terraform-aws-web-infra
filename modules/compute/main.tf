@@ -2,9 +2,9 @@
 resource "aws_instance" "web_a" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
-  vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
+  subnet_id                   = var.subnet_id[0]
+  vpc_security_group_ids      = var.ec2_sg_id
+  iam_instance_profile        = var.instance_profile_name
   user_data_replace_on_change = true
 
   user_data = templatefile("${path.root}/scripts/userdata.sh", {
@@ -24,9 +24,9 @@ resource "aws_instance" "web_a" {
 resource "aws_instance" "web_b" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
-  vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
-  iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
+  subnet_id                   = var.subnet_id[1]
+  vpc_security_group_ids      = var.ec2_sg_id
+  iam_instance_profile        = var.instance_profile_name
   user_data_replace_on_change = true
 
   user_data = templatefile("${path.root}/scripts/userdata.sh", {
