@@ -1,7 +1,7 @@
 # Web Servers
 resource "aws_instance" "web_a" {
-  ami                         = "ami-0c1fe732b5494dc14"
-  instance_type               = "t2.micro"
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
   subnet_id                   = aws_subnet.priv-sub-1a-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
@@ -22,8 +22,8 @@ resource "aws_instance" "web_a" {
 }
 
 resource "aws_instance" "web_b" {
-  ami                         = "ami-0c1fe732b5494dc14"
-  instance_type               = "t2.micro"
+  ami                         = var.ami_id
+  instance_type               = var.instance_type
   subnet_id                   = aws_subnet.priv-sub-1b-webserver.id
   vpc_security_group_ids      = [aws_security_group.ec2-sg-webserver.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2-profile-webserver.name
